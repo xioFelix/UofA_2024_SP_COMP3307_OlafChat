@@ -58,10 +58,8 @@ The OLAF Chat System is a secure, distributed chat application that uses AES enc
    The client connects to the server and allows the user to send encrypted messages.
 
    ```bash
-   python3 -m client.client <server_ip> <server_port>
+   ./scripts/run_client.sh
    ```
-
-   Replace `<server_ip>` and `<server_port>` with the IP address and port number of the server.
 
 2. **Sending Messages**:
 
