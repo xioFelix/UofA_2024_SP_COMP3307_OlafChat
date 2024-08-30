@@ -1,9 +1,8 @@
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
-import os
 
-KEY = os.urandom(32)  # This should be securely shared between server and client
-IV = os.urandom(16)
+KEY = b"sixteen byte key"  # Replace with your actual key
+IV = b"sixteen byte iv."  # Replace with your actual initialization vector (IV)
 
 
 def encrypt_message(message):
