@@ -1,2 +1,3 @@
 #!/bin/bash
-python3 ../server/server.py
+export PYTHONPATH=$(pwd)/..
+python3 ./server/server.py
