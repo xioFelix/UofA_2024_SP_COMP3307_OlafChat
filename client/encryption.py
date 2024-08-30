@@ -1,32 +1,52 @@
+from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
-from cryptography.hazmat.primitives import padding
-
-KEY = b"sixteen byte key"  # Replace with your actual key
-IV = b"sixteen byte iv."  # Replace with your actual IV
+from cryptography.hazmat.primitives import padding as sym_padding
+import os
 
 
-def encrypt_message(message):
-    padder = padding.PKCS7(128).padder()
+# The function of encrypting the AES key
+def encrypt_aes_key(aes_key, rsa_public_key):
+    encrypted_key = rsa_public_key.encrypt(
+        aes_key,
+        padding.OAEP(
+            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+            algorithm=hashes.SHA256(),
+            label=None,
+        ),
+    )
+    return encrypted_key
+
+
+# Functions to encrypt messages
+def encrypt_message(message, rsa_public_key):
+    aes_key = os.urandom(32)  # Generate a random AES key
+    iv = os.urandom(16)  # Generate random IV
+
+    # Encrypt the AES key
+    encrypted_key = encrypt_aes_key(aes_key, rsa_public_key)
+
+    # Use AES to encrypt messages
+    padder = sym_padding.PKCS7(128).padder()
     padded_message = padder.update(message.encode()) + padder.finalize()
 
-    cipher = Cipher(algorithms.AES(KEY), modes.CBC(IV))
+    cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv))
     encryptor = cipher.encryptor()
 
     encrypted_message = encryptor.update(padded_message) + encryptor.finalize()
-    return IV + encrypted_message  # Prepend IV for decryption
+
+    return (
+        encrypted_key + iv + encrypted_message
+    )  # Return the encrypted AES key, IV and encrypted message
 
 
-def decrypt_message(encrypted_message):
-    iv = encrypted_message[:16]  # Extract the IV from the beginning
-    encrypted_message = encrypted_message[
-        16:
-    ]  # The rest is the actual encrypted message
-
-    cipher = Cipher(algorithms.AES(KEY), modes.CBC(iv))
+# The function of decrypting messages (usually not required to be used in the client, but can be retained to prevent two-way encrypted communication)
+def decrypt_message(encrypted_message, aes_key, iv):
+    cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv))
     decryptor = cipher.decryptor()
 
     padded_message = decryptor.update(encrypted_message) + decryptor.finalize()
 
-    unpadder = padding.PKCS7(128).unpadder()
+    unpadder = sym_padding.PKCS7(128).unpadder()
     message = unpadder.update(padded_message) + unpadder.finalize()
     return message.decode()
