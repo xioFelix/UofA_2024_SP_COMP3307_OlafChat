@@ -12,9 +12,20 @@ The OLAF Chat System is a secure, distributed chat application built using the O
 - **Distributed Topology**: Supports a decentralized network of interconnected servers.
 - **Robustness**: Designed to handle malicious actors and ensure message integrity.
 
-## Getting Started
-
 ### Prerequisites
 
 Make sure you have Python 3.x installed on your system. You'll also need to install the required dependencies.
 
+# OLAF Chat System
+
+This project implements a chat system using the OLAF protocol. The system consists of a client and a server, both of which support encrypted communication.
+
+## Getting Started
+
+### Prerequisites
+
+- Python 3.x
+- Install required packages:
+
+```bash
+pip install -r requirements.txt
