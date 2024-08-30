@@ -2,7 +2,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from cryptography.hazmat.primitives import padding
 
 KEY = b"sixteen byte key"  # Replace with your actual key
-IV = b"sixteen byte iv."  # Replace with your actual initialization vector (IV)
+IV = b"sixteen byte iv."  # Replace with your actual IV
 
 
 def encrypt_message(message):
@@ -15,10 +15,11 @@ def encrypt_message(message):
     encrypted_message = encryptor.update(padded_message) + encryptor.finalize()
     return IV + encrypted_message  # Prepend IV for decryption
 
-
 def decrypt_message(encrypted_message):
-    iv = encrypted_message[:16]
-    encrypted_message = encrypted_message[16:]
+    iv = encrypted_message[:16]  # Extract the IV from the beginning
+    encrypted_message = encrypted_message[
+        16:
+    ]  # The rest is the actual encrypted message
 
     cipher = Cipher(algorithms.AES(KEY), modes.CBC(iv))
     decryptor = cipher.decryptor()
