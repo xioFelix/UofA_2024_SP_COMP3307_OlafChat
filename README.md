@@ -23,8 +23,8 @@ The OLAF Chat System is a secure, distributed chat application that uses AES enc
 1. **Clone the Repository**:
 
    ```bash
-   git clone https://github.com/yourusername/olaf_chat_system.git
-   cd olaf_chat_system
+   https://github.com/<Your User Name>/UofA_2024_SP_OlafChat.git
+   cd UofA_2024_SP_OlafChat
    ```
 
 2. **Install Dependencies**:
