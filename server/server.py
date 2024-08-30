@@ -1,6 +1,5 @@
-from connection import ServerConnection
-from encryption import encrypt_message, decrypt_message
-
+from .connection import ServerConnection
+from .encryption import encrypt_message, decrypt_message
 
 class Server:
     def __init__(self, host, port):
