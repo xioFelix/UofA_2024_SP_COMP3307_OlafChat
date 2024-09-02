@@ -82,9 +82,11 @@ The OLAF Chat System is a secure, distributed chat application that uses AES enc
 
 1. **Start the Server**:
    - Run `python3 -m server.server` to start the server.
+   - If the command above doesn't work, try to run `python3 -m server.server`.
 
 2. **Start the Client**:
    - Run `python3 -m client.client 127.0.0.1 8080` (assuming the server is running locally on port 8080).
+   - If the command above doesn't work, try to run `python -m client.client 127.0.0.1 8080`.
 
 3. **Send and Receive Messages**:
    - The client can send a message by typing in the console.
