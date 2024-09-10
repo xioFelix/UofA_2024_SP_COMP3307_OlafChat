@@ -1,13 +1,20 @@
 import socket
-from encryption import encrypt_message
+from protocol.message_format import create_message
+from client.encryption import encrypt_message
 from cryptography.hazmat.primitives import serialization
-
+from cryptography.hazmat.primitives.asymmetric import rsa
 
 class Client:
     def __init__(self, server_ip, server_port):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((server_ip, server_port))
         self.server_public_key = self.receive_public_key()
+        self.private_key = rsa.generate_private_key(
+            public_exponent=65537,
+            key_size=2048
+        )
+        self.counter = 0
+        self.send_hello()
 
     def receive_public_key(self):
         # 接收来自服务器的公钥
@@ -15,8 +22,18 @@ class Client:
         public_key = serialization.load_pem_public_key(pem_data)
         return public_key
 
-    def send_message(self, message):
-        encrypted_message = encrypt_message(message, self.server_public_key)
+    def send_hello(self):
+        public_key_pem = self.private_key.public_key().public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        # Sending the unencrypted public key directly
+        self.sock.send(public_key_pem)
+
+    def send_message(self, message_type, data):
+        self.counter += 1
+        json_message = create_message(message_type, data, self.private_key, self.counter)
+        encrypted_message = encrypt_message(json_message, self.server_public_key)
         self.sock.send(encrypted_message)
 
     def start(self):
@@ -25,8 +42,13 @@ class Client:
             if message.lower() == "quit":
                 print("Client disconnected.")
                 break
-            self.send_message(message)
+            try:
+                self.send_message("chat", {"message": message})
+            except Exception as e:
+                print(f"Error sending message: {e}")
+                break
 
+        self.sock.close()
 
 if __name__ == "__main__":
     client = Client("127.0.0.1", 8080)  # 假设服务器运行在本地并监听8080端口
