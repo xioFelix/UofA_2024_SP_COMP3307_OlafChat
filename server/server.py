@@ -1,5 +1,6 @@
 import socket
 import logging
+import json
 from cryptography.hazmat.primitives import serialization
 from server.encryption import get_private_key, decrypt_message
 from protocol.message_format import parse_and_verify_message
@@ -31,42 +32,45 @@ def handle_client(client_sock):
     # Receive and process encrypted messages from clients
     while True:
         try:
-            if client_public_key is None:
-                # Receive unencrypted public key directly
-                public_key_pem = client_sock.recv(1024)  # 假设公钥小于1024字节
-                client_public_key = serialization.load_pem_public_key(public_key_pem)
-                logging.info("Received client's public key")
-                continue
-
-            encrypted_message = client_sock.recv(4096)
-            if not encrypted_message:
+            message = client_sock.recv(4096)
+            if not message:
                 logging.info("Client disconnected")
                 break
 
-            # 记录收到的加密消息
-            logging.info(f"Received encrypted message:\n{encrypted_message.hex()}")
-
-            # 使用私钥解密消息
-            decrypted_message = decrypt_message(encrypted_message, private_key)
-            logging.info(f"Decrypted message: {decrypted_message}")
-
             if client_public_key is None:
-                # If there is no client public key yet, assume this is a "hello" message
-                data = serialization.load_pem_public_key(decrypted_message.encode())
-                client_public_key = data
-                logging.info("Received client's public key")
-                continue
-
-            data, counter = parse_and_verify_message(decrypted_message, client_public_key)
-            
-            if data["type"] == "chat":
-                logging.info(f"Received chat message: {data['message']}")
+                # The first message received should be an unencrypted hello message
+                try:
+                    decoded_message = message.decode()
+                    print(f"Received message: {decoded_message}")
+                    data = json.loads(decoded_message)
+                    if data["data"]["type"] == "hello":
+                        client_public_key = serialization.load_pem_public_key(data["data"]["public_key"].encode())
+                        logging.info("Received client's public key from hello message")
+                    else:
+                        logging.warning(f"Expected hello message, but received {data['data']['type']}")
+                except json.JSONDecodeError:
+                    logging.error("Failed to decode JSON from the received message")
+                except Exception as e:
+                    logging.error(f"Error processing hello message: {str(e)}")
             else:
-                logging.warning(f"Received unknown message type: {data['type']}")
+                # Make subsequent messages encrypted after receiving the "hello" message
+                print(f"Received encrypted message: {message.hex()}")
+                try:
+                    decrypted_message = decrypt_message(message, private_key)
+                    logging.info(f"Decrypted message: {decrypted_message}")
+
+                    data, counter = parse_and_verify_message(decrypted_message, client_public_key)
+                    
+                    if data["type"] == "chat":
+                        logging.info(f"Received chat message: {data['message']}")
+                    else:
+                        logging.warning(f"Received unknown message type: {data['type']}")
+                except Exception as e:
+                    logging.error(f"Error decrypting or parsing message: {str(e)}")
 
         except Exception as e:
             logging.error(f"Error processing message: {e}")
-            # No break here, keep the connection open
+            logging.error(f"Error details: {str(e)}", exc_info=True)
 
     client_sock.close()
     logging.info("Closed client connection")

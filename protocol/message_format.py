@@ -1,6 +1,6 @@
 import json
 import base64
-from cryptography.hazmat.primitives import hashes
+from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding
 
 def create_message(message_type, data, private_key, counter):
@@ -13,7 +13,16 @@ def create_message(message_type, data, private_key, counter):
         "counter": counter
     }
     
-    # Create a signature
+    # 如果是 hello 消息，需要包含公钥
+    if message_type == "hello":
+        public_key = private_key.public_key()
+        public_key_pem = public_key.public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        )
+        message["data"]["public_key"] = public_key_pem.decode()
+
+    # 创建签名
     message_bytes = json.dumps(message["data"]).encode() + str(counter).encode()
     signature = private_key.sign(
         message_bytes,

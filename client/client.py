@@ -8,11 +8,11 @@ class Client:
     def __init__(self, server_ip, server_port):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect((server_ip, server_port))
-        self.server_public_key = self.receive_public_key()
         self.private_key = rsa.generate_private_key(
             public_exponent=65537,
             key_size=2048
         )
+        self.server_public_key = self.receive_public_key()
         self.counter = 0
         self.send_hello()
 
@@ -23,12 +23,10 @@ class Client:
         return public_key
 
     def send_hello(self):
-        public_key_pem = self.private_key.public_key().public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo
-        )
-        # Sending the unencrypted public key directly
-        self.sock.send(public_key_pem)
+        self.counter += 1
+        hello_message = create_message("hello", {}, self.private_key, self.counter)
+        print(f"Sending hello message: {hello_message}")
+        self.sock.send(hello_message.encode())
 
     def send_message(self, message_type, data):
         self.counter += 1
