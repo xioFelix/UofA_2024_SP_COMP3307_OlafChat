@@ -1,116 +1,115 @@
+
 # OLAF Chat System
 
 ## Overview
-
-The OLAF Chat System is a secure, distributed chat application that uses AES encryption to ensure the confidentiality of messages exchanged between clients and servers. This project is part of an Advanced Secure Programming assignment, focusing on secure communication protocols.
+The OLAF Chat System is a secure, distributed chat application that uses **AES encryption** and **RSA key exchange** to ensure the confidentiality and integrity of messages exchanged between clients and servers. This project is part of an Advanced Secure Programming assignment, focusing on secure communication protocols, including encryption, message integrity, and ethical vulnerabilities.
 
 ## Features
-
-- **Client-Server Communication**: Secure messaging between clients and servers using a simple client-server architecture.
-- **AES Encryption**: Messages are encrypted using AES in CBC mode, ensuring confidentiality during transmission.
-- **Authentication**: Servers authenticate clients upon connection.
+- **Client-Server Communication**: Secure messaging between clients and servers using a distributed client-server architecture.
+- **AES Encryption**: Messages are encrypted using **AES in CFB mode**, ensuring confidentiality during transmission.
+- **RSA Key Exchange**: Clients and servers use RSA for secure key exchange of the AES session key.
+- **Authentication**: Servers authenticate clients upon connection using RSA-signed messages.
+- **Replay Attack Prevention**: Messages are protected against replay attacks using a counter mechanism.
 - **Decryption**: Clients can decrypt received messages for secure communication.
+- **Message Signing**: Ensures message integrity by using digital signatures.
 
 ## Getting Started
 
 ### Prerequisites
-
 - Python 3.x installed on your system.
 - Install the required dependencies listed in `requirements.txt`.
 
 ### Installation
 
-1. **Clone the Repository**:
-
+1. Clone the Repository:
    ```bash
-   https://github.com/<Your User Name>/UofA_2024_SP_OlafChat.git
+   git clone https://github.com/<Your User Name>/UofA_2024_SP_OlafChat.git
    cd UofA_2024_SP_OlafChat
    ```
 
-2. **Install Dependencies**:
-
-   Install the required Python packages:
-
+2. Install Dependencies:
    ```bash
    pip install -r requirements.txt
    ```
 
 ### Running the Server
 
-1. **Start the Server**:
+Start the Server:
+```bash
+./scripts/run_server.sh
+```
+The server is responsible for accepting client connections, exchanging RSA public keys, and relaying encrypted messages. The server logs encryption, decryption, and received messages.
 
-   The server is responsible for accepting client connections and relaying encrypted messages.
-
-   ```bash
-   python3 -m server.server
-   ```
-
-   When the server starts, it will listen for incoming connections from clients. Upon receiving a connection, it will authenticate the client and wait for messages.
-
-2. **Server Output**:
-
-   The server will display output indicating when a client connects and when messages are received.
+### Server Output:
+The server will display output indicating:
+- When a client connects.
+- The RSA public key exchange.
+- Encrypted and decrypted messages.
 
 ### Running the Client
 
-1. **Start the Client**:
+Start the Client:
+```bash
+./scripts/run_client.sh
+```
+The client connects to the server, exchanges public keys, and allows the user to send encrypted messages.
 
-   The client connects to the server and allows the user to send encrypted messages.
+### Sending Messages:
+Once the client is connected, you can type messages into the console. These messages will be signed, encrypted using AES, and sent to the server.
 
+### Receiving Messages:
+The client will display decrypted messages received from the server.
+
+### Exit the Client:
+To exit the client, type `quit`.
+
+## Encryption and Decryption
+
+- **Encryption**: Messages are encrypted using AES in CFB mode. RSA is used for the initial key exchange.
+- **Decryption**: Received messages are decrypted using the AES key shared during the RSA key exchange.
+- **Message Signing**: Each message is signed using RSA to ensure message integrity and authenticity.
+- **Replay Attack Prevention**: A counter is used to prevent replay attacks.
+
+## Example Workflow
+
+1. **Start the Server**:
+   ```bash
+   ./scripts/run_server.sh
+   ```
+
+2. **Start the Client**:
    ```bash
    ./scripts/run_client.sh
    ```
 
-2. **Sending Messages**:
-
-   Once the client is connected, you can type messages into the console. These messages will be encrypted and sent to the server.
-
-3. **Receiving Messages**:
-
-   The client will display decrypted messages received from the server.
-
-4. **Exit the Client**:
-
-   To exit the client, type `quit`.
-
-### Encryption and Decryption
-
-- **Encryption**: Messages are encrypted using AES with CBC mode. The encryption process includes padding to ensure the message length is a multiple of the block size.
-- **Decryption**: Received messages are decrypted using the same AES key and initialization vector (IV) used for encryption.
-
-### Example Workflow
-
-1. **Start the Server**:
-   - Run `python3 -m server.server` to start the server.
-
-2. **Start the Client**:
-   - Run `python3 -m client.client 127.0.0.1 8080` (assuming the server is running locally on port 8080).
-
 3. **Send and Receive Messages**:
-   - The client can send a message by typing in the console.
-   - The server will receive, decrypt, and display the message.
-   - The server can send a response, which the client will decrypt and display.
+   - The client sends an encrypted and signed message.
+   - The server receives, decrypts, verifies the signature, and displays the message.
 
-### Project Structure
+## Project Structure
 
-- **client/**: Contains the client-side implementation.
-- **server/**: Contains the server-side implementation.
-- **protocol/**: Houses the OLAF protocol implementation and message handling (if applicable).
-- **tests/**: Contains unit and integration tests.
-- **docs/**: Documentation files for the project.
-- **scripts/**: Shell scripts to run the client and server.
-- **requirements.txt**: List of Python dependencies.
+```plaintext
+├── client/
+│   ├── client.py          # Client-side implementation
+├── server/
+│   ├── server.py          # Server-side implementation
+├── shared/
+│   ├── encryption.py      # Encryption and decryption functions (shared by client and server)
+├── protocol/              # Protocol implementation (if applicable)
+├── tests/                 # Unit and integration tests
+├── docs/                  # Documentation files for the project
+├── scripts/               # Shell scripts to run the client and server
+├── requirements.txt       # List of Python dependencies
+```
 
 ### Troubleshooting
 
-- **Connection Refused**: Ensure that the server is running and the IP address and port are correct.
-- **Invalid Padding Error**: This usually means the message was not padded correctly before encryption or was tampered with during transmission.
-- **Invalid IV Size**: Ensure that the IV is correctly extracted and passed during the decryption process.
+1. **Connection Refused**: Ensure that the server is running and the IP address and port are correct.
+2. **Signature Verification Failed**: Ensure that the message has not been tampered with, and the keys match.
+3. **Invalid Padding/IV Size**: Ensure that the AES IV and padding are correctly implemented.
 
 ### Contribution
-
-If you would like to contribute to this project, feel free to fork the repository and submit a pull request. All contributions are welcome!
+If you would like to contribute to this project, feel free to fork the repository and submit a pull request. Contributions for adding new features, improving security, or fixing bugs are welcome.
 
 ### License
-
-This project is licensed under the MIT License. See the `LICENSE` file for more details.
+This project is licensed under the MIT License. See the LICENSE file for more details.
