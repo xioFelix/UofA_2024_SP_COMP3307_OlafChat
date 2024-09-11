@@ -1,6 +1,6 @@
 import socket
 from protocol.message_format import create_message
-from client.encryption import encrypt_message
+from shared.encryption import encrypt_message
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
