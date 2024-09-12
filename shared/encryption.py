@@ -5,11 +5,10 @@ from cryptography.hazmat.primitives import padding as sym_padding
 import os
 import base64
 import json
+import logging
 
 
-# RSA key generation (in actual application, the key should be pre-generated and safely stored)
-# In this demonstration, suppose you already have the private key of the server and the public key of the client.
-
+# RSA key generation
 private_key = rsa.generate_private_key(
     public_exponent=65537,
     key_size=2048,
@@ -20,7 +19,7 @@ def get_private_key():
     return private_key
 
 
-# The function to decrypt the AES key
+# Decrypt AES key using RSA private key
 def decrypt_aes_key(encrypted_key, rsa_private_key):
     aes_key = rsa_private_key.decrypt(
         encrypted_key,
@@ -33,9 +32,9 @@ def decrypt_aes_key(encrypted_key, rsa_private_key):
     return aes_key
 
 
-# The function to decrypt messages
+# Decrypt the encrypted message using the AES key
 def decrypt_message(encrypted_message, rsa_private_key):
-    # Convert the message back from JSON format
+    # Convert the message from JSON format
     message_data = json.loads(encrypted_message.decode("utf-8"))
 
     # Decode the base64 encoded parts
@@ -46,7 +45,7 @@ def decrypt_message(encrypted_message, rsa_private_key):
     # Decrypt the AES key
     aes_key = decrypt_aes_key(encrypted_key, rsa_private_key)
 
-    # Use the decrypted AES key to decrypt the message
+    # Decrypt the message content
     cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv))
     decryptor = cipher.decryptor()
 
@@ -54,10 +53,17 @@ def decrypt_message(encrypted_message, rsa_private_key):
 
     unpadder = sym_padding.PKCS7(128).unpadder()
     message = unpadder.update(padded_message) + unpadder.finalize()
-    return message.decode()
+
+    # The decrypted 'message' field may already be a JSON string, so you don't need to parse it again
+    decrypted_message = {
+        "message": message.decode(),  # Just decode it to a string
+        "signature": message_data["signature"],  # Pass the signature
+    }
+
+    return decrypted_message  # Return the full structure
 
 
-# Encrypt the AES key
+# Encrypt AES key using RSA public key
 def encrypt_aes_key(aes_key, rsa_public_key):
     encrypted_key = rsa_public_key.encrypt(
         aes_key,
@@ -70,28 +76,52 @@ def encrypt_aes_key(aes_key, rsa_public_key):
     return encrypted_key
 
 
-# Function to sign the message
-def sign_message(private_key, message):
+# Sign a message with RSA private key
+def sign_message(private_key, message, counter):
+    # Add the counter to the message to prevent replay attacks
+    message["counter"] = counter
+    serialized_message = json.dumps(message)
+
     signature = private_key.sign(
-        message.encode("utf-8"),
+        serialized_message.encode("utf-8"),
         padding.PSS(
             mgf=padding.MGF1(hashes.SHA256()),
             salt_length=padding.PSS.MAX_LENGTH,
         ),
         hashes.SHA256(),
     )
-    return base64.b64encode(signature).decode("utf-8")  # Base64 encode the signature
+    return base64.b64encode(signature).decode("utf-8")
 
 
-# Encrypt the message along with its signature
+# Verify the signature
+def verify_signature(public_key, message, signature):
+    try:
+        signature_bytes = base64.b64decode(signature)
+        serialized_message = json.dumps(message)  # same serialization
+        public_key.verify(
+            signature_bytes,
+            serialized_message.encode("utf-8"),  # use the same serialized string for verification
+            padding.PSS(
+                mgf=padding.MGF1(hashes.SHA256()),
+                salt_length=padding.PSS.MAX_LENGTH,
+            ),
+            hashes.SHA256(),
+        )
+
+        logging.info("Signature verified successfully.")
+        return True
+    except Exception as e:
+        logging.error(f"Signature verification failed: {e}")
+        return False
+
+
+# Encrypt a message with AES, include signature, and return the whole package
 def encrypt_message(message, rsa_public_key, signature):
-    aes_key = os.urandom(32)  # Generate a random AES key
-    iv = os.urandom(16)  # Generate random IV
+    aes_key = os.urandom(32)
+    iv = os.urandom(16)
 
-    # Encrypt the AES key
     encrypted_key = encrypt_aes_key(aes_key, rsa_public_key)
 
-    # Use AES to encrypt the message
     padder = sym_padding.PKCS7(128).padder()
     padded_message = padder.update(message.encode()) + padder.finalize()
 
@@ -99,15 +129,12 @@ def encrypt_message(message, rsa_public_key, signature):
     encryptor = cipher.encryptor()
 
     encrypted_message = encryptor.update(padded_message) + encryptor.finalize()
-
-    # Construct a JSON object to send over the network
     message_with_signature = {
         "encrypted_key": base64.b64encode(encrypted_key).decode("utf-8"),
         "iv": base64.b64encode(iv).decode("utf-8"),
         "encrypted_message": base64.b64encode(encrypted_message).decode("utf-8"),
-        "signature": signature,
+        "signature": signature,  # Make sure signature is included here
     }
+    logging.info(f"---message_with_signature---: {message_with_signature}")
 
-    return json.dumps(message_with_signature).encode(
-        "utf-8"
-    )  # Convert JSON to bytes for sending
+    return json.dumps(message_with_signature).encode("utf-8")
