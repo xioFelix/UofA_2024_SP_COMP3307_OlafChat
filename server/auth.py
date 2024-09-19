@@ -1,5 +1,6 @@
 import json
 import os
+import hashlib
 
 
 class UserManager:
@@ -24,23 +25,27 @@ class UserManager:
 
     def save_users(self):
         """
-        Save users to the user data file.
+        Save users to the user_data file.
         """
         with open(self.user_data_file, "w") as f:
             json.dump(self.users, f)
 
-    def register_user(self, username, public_key_pem):
+    def register_user(self, public_key_pem, username):
         """
-        Register a new user with username and public key.
+        Register a new user with public key and username.
         """
-        if username in self.users:
-            return False  # Username already exists
-        self.users[username] = public_key_pem
+        fingerprint = hashlib.sha256(public_key_pem.encode("utf-8")).hexdigest()
+        self.users[fingerprint] = {"public_key": public_key_pem, "username": username}
         self.save_users()
-        return True
 
-    def get_user_public_key(self, username):
+    def get_user_info(self, fingerprint):
         """
-        Get the public key of a registered user.
+        Get the user info (public key and username) by fingerprint.
         """
-        return self.users.get(username)
+        return self.users.get(fingerprint)
+
+    def get_all_users(self):
+        """
+        Get all registered users.
+        """
+        return self.users

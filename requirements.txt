@@ -1,1 +1,5 @@
-cryptography==3.4.7
+cryptography
+websockets
+aiohttp
+requests
+PyYAML

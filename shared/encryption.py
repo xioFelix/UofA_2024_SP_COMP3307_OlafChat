@@ -2,10 +2,9 @@ import os
 import base64
 import json
 import logging
-from cryptography.hazmat.primitives.asymmetric import rsa, padding
+from cryptography.hazmat.primitives.asymmetric import rsa, padding as asym_padding
 from cryptography.hazmat.primitives import serialization, hashes
-from cryptography.hazmat.primitives import padding as sym_padding
-from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 
 def load_or_generate_private_key(key_path):
@@ -24,7 +23,7 @@ def load_or_generate_private_key(key_path):
         with open(key_path, "wb") as key_file:
             pem = private_key.private_bytes(
                 encoding=serialization.Encoding.PEM,
-                format=serialization.PrivateFormat.TraditionalOpenSSL,
+                format=serialization.PrivateFormat.PKCS8,  # 使用 PKCS8 格式
                 encryption_algorithm=serialization.NoEncryption(),
             )
             key_file.write(pem)
@@ -48,17 +47,17 @@ def serialize_public_key(public_key):
         encoding=serialization.Encoding.PEM,
         format=serialization.PublicFormat.SubjectPublicKeyInfo,
     )
-    return public_key_pem
+    return public_key_pem.decode("utf-8")
 
 
 def rsa_encrypt(public_key, data):
     """
-    Encrypt data using RSA public key encryption.
+    Encrypt data using RSA public key encryption with OAEP padding.
     """
     encrypted = public_key.encrypt(
         data,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+        asym_padding.OAEP(
+            mgf=asym_padding.MGF1(algorithm=hashes.SHA256()),  # 使用 SHA-256
             algorithm=hashes.SHA256(),
             label=None,
         ),
@@ -68,12 +67,12 @@ def rsa_encrypt(public_key, data):
 
 def rsa_decrypt(private_key, encrypted_data):
     """
-    Decrypt data using RSA private key decryption.
+    Decrypt data using RSA private key decryption with OAEP padding.
     """
     decrypted = private_key.decrypt(
         encrypted_data,
-        padding.OAEP(
-            mgf=padding.MGF1(algorithm=hashes.SHA256()),
+        asym_padding.OAEP(
+            mgf=asym_padding.MGF1(algorithm=hashes.SHA256()),  # 使用 SHA-256
             algorithm=hashes.SHA256(),
             label=None,
         ),
@@ -83,63 +82,59 @@ def rsa_decrypt(private_key, encrypted_data):
 
 def aes_encrypt(aes_key, plaintext):
     """
-    Encrypt plaintext using AES symmetric encryption.
+    Encrypt plaintext using AES-GCM symmetric encryption.
     """
-    iv = os.urandom(16)
-    padder = sym_padding.PKCS7(128).padder()
-    padded_data = padder.update(plaintext) + padder.finalize()
-    cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv))
-    encryptor = cipher.encryptor()
-    encrypted = encryptor.update(padded_data) + encryptor.finalize()
+    aesgcm = AESGCM(aes_key)
+    iv = os.urandom(16)  # 16 字节的 IV
+    encrypted = aesgcm.encrypt(iv, plaintext, None)
     return iv, encrypted
 
 
 def aes_decrypt(aes_key, iv, ciphertext):
     """
-    Decrypt ciphertext using AES symmetric decryption.
+    Decrypt ciphertext using AES-GCM symmetric decryption.
     """
-    cipher = Cipher(algorithms.AES(aes_key), modes.CBC(iv))
-    decryptor = cipher.decryptor()
-    padded_plaintext = decryptor.update(ciphertext) + decryptor.finalize()
-    unpadder = sym_padding.PKCS7(128).unpadder()
-    plaintext = unpadder.update(padded_plaintext) + unpadder.finalize()
+    aesgcm = AESGCM(aes_key)
+    plaintext = aesgcm.decrypt(iv, ciphertext, None)
     return plaintext
 
 
 def generate_aes_key():
     """
-    Generate a random AES key.
+    Generate a random 256-bit AES key.
     """
-    return os.urandom(32)
+    return AESGCM.generate_key(bit_length=256)  # 生成 256 位的 AES 密钥
 
 
-def sign_message(private_key, message):
+def sign_message(private_key, message, counter):
     """
-    Sign a message using RSA private key.
+    Sign a message using RSA private key with PSS padding and include counter.
     """
+    signer_data = message + str(counter)
     signature = private_key.sign(
-        message.encode("utf-8"),
-        padding.PSS(
-            mgf=padding.MGF1(hashes.SHA256()),
-            salt_length=padding.PSS.MAX_LENGTH,
+        signer_data.encode("utf-8"),
+        asym_padding.PSS(
+            mgf=asym_padding.MGF1(hashes.SHA256()),
+            salt_length=32,  # 固定 32 字节的盐长度
         ),
         hashes.SHA256(),
     )
     return base64.b64encode(signature).decode("utf-8")
 
 
-def verify_signature(public_key, message, signature):
+def verify_signature(public_key, message, signature_b64, counter):
     """
-    Verify a message signature using RSA public key.
+    Verify a message signature using RSA public key with PSS padding and counter.
     """
+    signature = base64.b64decode(signature_b64)
+    signer_data = message + str(counter)
     try:
-        signature_bytes = base64.b64decode(signature)
         public_key.verify(
-            signature_bytes,
-            message.encode("utf-8"),
-            padding.PSS(
-                mgf=padding.MGF1(hashes.SHA256()),
-                salt_length=padding.PSS.MAX_LENGTH,
+            signature,
+            signer_data.encode("utf-8"),
+            asym_padding.PSS(
+                mgf=asym_padding.MGF1(hashes.SHA256()),
+                salt_length=32,  # 固定 32 字节的盐长度
             ),
             hashes.SHA256(),
         )
@@ -148,32 +143,3 @@ def verify_signature(public_key, message, signature):
     except Exception as e:
         logging.error(f"Signature verification failed: {e}")
         return False
-
-
-def encrypt_message(message, recipient_public_key):
-    """
-    Encrypt a message using the recipient's public key and AES symmetric encryption.
-    """
-    aes_key = generate_aes_key()
-    iv, encrypted_message = aes_encrypt(aes_key, message.encode())
-    encrypted_key = rsa_encrypt(recipient_public_key, aes_key)
-    message_package = {
-        "encrypted_key": base64.b64encode(encrypted_key).decode("utf-8"),
-        "iv": base64.b64encode(iv).decode("utf-8"),
-        "encrypted_message": base64.b64encode(encrypted_message).decode("utf-8"),
-    }
-    return json.dumps(message_package)
-
-
-def decrypt_message(message_package_json, private_key):
-    """
-    Decrypt a received message using the recipient's private key and AES symmetric decryption.
-    """
-    message_package = json.loads(message_package_json)
-    encrypted_key = base64.b64decode(message_package["encrypted_key"])
-    iv = base64.b64decode(message_package["iv"])
-    encrypted_message = base64.b64decode(message_package["encrypted_message"])
-
-    aes_key = rsa_decrypt(private_key, encrypted_key)
-    plaintext = aes_decrypt(aes_key, iv, encrypted_message)
-    return plaintext.decode("utf-8")
