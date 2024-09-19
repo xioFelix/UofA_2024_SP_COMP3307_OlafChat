@@ -1,51 +1,40 @@
 import json
 import os
-import hashlib
 
 
 class UserManager:
-    """
-    UserManager handles user registration and retrieval.
-    """
-
-    def __init__(self, user_data_file):
-        self.user_data_file = user_data_file
-        self.users = {}
-        self.load_users()
+    def __init__(self, filename):
+        self.filename = filename
+        self.users = self.load_users()
 
     def load_users(self):
-        """
-        Load users from the user data file.
-        """
-        if os.path.exists(self.user_data_file):
-            with open(self.user_data_file, "r") as f:
-                self.users = json.load(f)
+        if os.path.exists(self.filename):
+            with open(self.filename, "r") as f:
+                return json.load(f)
         else:
-            self.users = {}
+            return {}
 
     def save_users(self):
-        """
-        Save users to the user_data file.
-        """
-        with open(self.user_data_file, "w") as f:
+        with open(self.filename, "w") as f:
             json.dump(self.users, f)
 
-    def register_user(self, public_key_pem, username):
-        """
-        Register a new user with public key and username.
-        """
-        fingerprint = hashlib.sha256(public_key_pem.encode("utf-8")).hexdigest()
-        self.users[fingerprint] = {"public_key": public_key_pem, "username": username}
-        self.save_users()
+    def register_user(self, public_key_pem, username, file_transfer_port):
+        fingerprint = self.compute_fingerprint(public_key_pem)
+        if fingerprint not in self.users:
+            self.users[fingerprint] = {
+                "username": username,
+                "public_key": public_key_pem,
+                "file_transfer_port": file_transfer_port,
+            }
+            self.save_users()
 
     def get_user_info(self, fingerprint):
-        """
-        Get the user info (public key and username) by fingerprint.
-        """
         return self.users.get(fingerprint)
 
     def get_all_users(self):
-        """
-        Get all registered users.
-        """
         return self.users
+
+    def compute_fingerprint(self, public_key_pem):
+        import hashlib
+
+        return hashlib.sha256(public_key_pem.encode("utf-8")).hexdigest()
